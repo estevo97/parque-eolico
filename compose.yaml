@@ -1,0 +1,79 @@
+
+services:
+  cassandra1:
+    image: cassandra:4.1
+    container_name: cassandra1
+    hostname: cassandra1
+    environment:
+      CASSANDRA_CLUSTER_NAME: ParqueEolicoCluster
+      CASSANDRA_SEEDS: cassandra1
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_RACK: rack1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 256M
+      HEAP_NEWSIZE: 64M
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra1_data:/var/lib/cassandra
+    networks:
+      - parque_eolico_net
+
+  cassandra2:
+    image: cassandra:4.1
+    container_name: cassandra2
+    hostname: cassandra2
+    environment:
+      CASSANDRA_CLUSTER_NAME: ParqueEolicoCluster
+      CASSANDRA_SEEDS: cassandra1
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_RACK: rack1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 256M
+      HEAP_NEWSIZE: 64M
+    volumes:
+      - cassandra2_data:/var/lib/cassandra
+    networks:
+      - parque_eolico_net
+    depends_on:
+      - cassandra1
+
+  cassandra3:
+    image: cassandra:4.1
+    container_name: cassandra3
+    hostname: cassandra3
+    environment:
+      CASSANDRA_CLUSTER_NAME: ParqueEolicoCluster
+      CASSANDRA_SEEDS: cassandra1
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_RACK: rack1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 256M
+      HEAP_NEWSIZE: 64M
+    volumes:
+      - cassandra3_data:/var/lib/cassandra
+    networks:
+      - parque_eolico_net
+    depends_on:
+      - cassandra1
+
+  python-app:
+    image: python:3.14-slim
+    container_name: python-app
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sleep infinity
+    networks:
+      - parque_eolico_net
+    depends_on:
+      - cassandra1
+
+volumes:
+  cassandra1_data:
+  cassandra2_data:
+  cassandra3_data:
+
+networks:
+  parque_eolico_net:
+    driver: bridge
