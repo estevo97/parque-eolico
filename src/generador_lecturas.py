@@ -27,6 +27,7 @@ TEMP_XERADOR_MAX=90.0
 ESTADO_OK = "ok"
 ESTADO_ALARMA = "alarma"
 ESTADO_PARADO = "parado"
+TEMP_ALARMA = 80.0
 
 # vento -> cambia pouco dunha lectura á seguinte e distintos aeroxeradores teñen ventos parecidos á mesma hora
 CAMBIO_MAX_VENTO = 0.5
@@ -65,21 +66,51 @@ def lectura(aeroxerador_id, data_hora, vento_primera):
     """Xera unha lectura que cumpre o contrato."""
 
     # Vento particular do aeroxerador
-    variacion = random.uniform(-0.3, 0.3)
-    vento_ms = round(vento_primera + variacion, 1)
+    # variacion = random.uniform(-0.3, 0.3)
+    # vento_ms = round(vento_primera + variacion, 1)
 
-    # Evitamos salir del rango permitido
-    vento_ms = max(VENTO_MIN, min(VENTO_MAX, vento_ms))
+    # # Evitamos salir del rango permitido
+    # vento_ms = max(VENTO_MIN, min(VENTO_MAX, vento_ms))
+    # Xeración independente do vento para probar as paradas
 
-    # Determinamos el estado
+    #pruebas sin variación
+    vento_ms = round(random.uniform(VENTO_MIN, VENTO_MAX), 1)
+     
+    # Xeración da temperatura e da posible alarma
+    if random.random() < PROBABILIDADE_ALARMA:
+        temp_xerador_c = round(
+            random.uniform(TEMP_ALARMA, TEMP_XERADOR_MAX), 1
+        )
+        ten_alarma = True
+
+    else:
+        temp_xerador_c = round(
+            random.uniform(TEMP_XERADOR_MIN, TEMP_ALARMA - 0.1), 1
+        )
+        ten_alarma = False
+
+    # Determinación do estado
     if vento_ms < VENTO_ARRANQUE or vento_ms > VENTO_MAX_FUNCIONAMENTO:
         estado = ESTADO_PARADO
 
-    elif random.random() < PROBABILIDADE_ALARMA:
+    elif ten_alarma:
         estado = ESTADO_ALARMA
 
     else:
         estado = ESTADO_OK
+
+
+    # # Determinamos el estado
+    # if vento_ms < VENTO_ARRANQUE or vento_ms > VENTO_MAX_FUNCIONAMENTO:
+    #     estado = ESTADO_PARADO
+
+    # elif random.random() < PROBABILIDADE_ALARMA:
+    #     estado = ESTADO_ALARMA
+
+    # else:
+    #     estado = ESTADO_OK
+
+
 
     # Calculamos la potencia
     potencia_kw = calcula_potencia(vento_ms)
@@ -92,7 +123,7 @@ def lectura(aeroxerador_id, data_hora, vento_primera):
 
     # Resto de valores
     direccion_graos = random.randint(GRAO_MIN, GRAO_MAX)
-    temp_xerador_c = round(random.uniform(TEMP_XERADOR_MIN, TEMP_XERADOR_MAX), 1)
+    # temp_xerador_c = round(random.uniform(TEMP_XERADOR_MIN, TEMP_XERADOR_MAX), 1)
 
     return {
         "aerogenerador_id": aeroxerador_id,

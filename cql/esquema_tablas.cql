@@ -3,7 +3,7 @@
 -- docker compose exec cassX cqlsh -f /cql/esquema_tablas.cql
 
 CREATE KEYSPACE IF NOT EXISTS parque_eolico
-  WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3};
+  WITH replication = {'class': 'NetworkTopologyStrategy', 'datacenter1': 3};
 
 USE parque_eolico;
 
