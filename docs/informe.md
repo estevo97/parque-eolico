@@ -75,3 +75,30 @@ A enerxía diaria calcúlase sumando a potencia de cada intervalo de dez minutos
 Realizáronse comprobacións para verificar a correcta carga dos datos, o funcionamento das consultas, o cálculo da enerxía e o almacenamento das alarmas e das últimas lecturas.
 
 O sistema permite almacenar e consultar de forma distribuída a información dos aeroxeradores mediante un clúster Cassandra de tres nodos.
+
+## Consultas a Cassandra
+
+O ficheiro `src/consultas.py` contén as funcións necesarias para conectarse ao clúster Cassandra e realizar consultas sobre os datos almacenados no keyspace `parque_eolico`.
+
+A función `conectar()` establece a conexión co clúster a través do porto 9042 e selecciona o keyspace do proxecto. Devolve o obxecto do clúster e a sesión, que se empregará para executar as consultas CQL.
+
+O ficheiro tamén incluirá as funcións correspondentes ás catro consultas principais do proxecto:
+
+- **Lecturas por aeroxerador e día:** recuperar as medicións dun aeroxerador nunha data determinada.
+- **Enerxía diaria:** calcular a enerxía producida por un aeroxerador ao longo dun día a partir das lecturas de potencia.
+- **Alarmas por día:** consultar os rexistros que presentan estado de alarma nunha data determinada.
+- **Última lectura:** recuperar a medición máis recente de cada aeroxerador.
+
+### Cálculo da enerxía diaria
+
+A función `calcular_enerxia_diaria()` calcula a enerxía total producida por un aeroxerador nun día. Para iso, consulta as lecturas de potencia almacenadas en Cassandra e suma a enerxía correspondente a cada intervalo de 10 minutos.
+
+Cada lectura de potencia (kW) multiplícase por \(10/60\) horas, obtendo a enerxía en kWh. Finalmente, acumúlanse os resultados para obter a produción enerxética diaria.
+
+### Consulta de alarmas diarias
+
+A función `consultar_alarmas_diarias()` permite recuperar todas as alarmas rexistradas nun día concreto. Consulta a táboa `alarmas_dia` e devolve os rexistros ordenados cronoloxicamente.
+
+### Consulta das últimas lecturas
+
+A función `consultar_ultimas_lecturas()` recupera a última lectura almacenada de cada aeroxerador. Para iso, consulta a táboa `ultima_lectura_aerogenerador`, que mantén un rexistro actualizado por cada máquina.
