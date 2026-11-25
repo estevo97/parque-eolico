@@ -31,6 +31,9 @@ ESTADO_PARADO = "parado"
 # vento -> cambia pouco dunha lectura á seguinte e distintos aeroxeradores teñen ventos parecidos á mesma hora
 CAMBIO_MAX_VENTO = 0.5
 vento_anterior_primera_lectura = random.uniform(VENTO_MIN, VENTO_MAX)
+VENTO_ARRANQUE = 3.0
+VENTO_NOMINAL = 12.0
+VENTO_MAX_FUNCIONAMENTO = 25.0
 
 def xera_vento_anterior(vento_anterior):
     """Xera o vento de referencia do parque."""
@@ -42,34 +45,179 @@ def xera_vento_anterior(vento_anterior):
 
     return round(vento, 1)
 
+def calcula_potencia(vento_ms):
+    """Calcula a potencia en función da velocidade do vento."""
+
+    if vento_ms < VENTO_ARRANQUE or vento_ms > VENTO_MAX_FUNCIONAMENTO:
+        potencia = POTENCIA_MIN
+
+    elif vento_ms < VENTO_NOMINAL:
+        proporcion = (vento_ms - VENTO_ARRANQUE) / (VENTO_NOMINAL - VENTO_ARRANQUE)
+        potencia = proporcion * POTENCIA_MAX
+
+    else:
+        potencia = POTENCIA_MAX
+
+    return round(potencia, 1)
+
 
 def lectura(aeroxerador_id, data_hora, vento_primera):
-    """unha lectura que cumpre o contrato."""
-    estado = ESTADO_ALARMA if random.random() < PROBABILIDADE_ALARMA else ESTADO_OK
-    return {
-        "aerogenerador_id": random.choice(AEROGENERADORES),
-        # "data_hora": data_hora.strftime("%Y-%m-%d %H:%M:%S"),
-        # "barra": random.choice(BARRAS),
-        # "pulseira": f"P-{random.randint(1, 5000):04d}",
-        # "produto": produto,
-        # "unidades": unidades,
-        # "importe": f"{CATALOGO[produto] * unidades:.2f}",   # regra: prezo × unidades
-    }
+    """Xera unha lectura que cumpre o contrato."""
 
+    # Vento particular do aeroxerador
+    variacion = random.uniform(-0.3, 0.3)
+    vento_ms = round(vento_primera + variacion, 1)
+
+    # Evitamos salir del rango permitido
+    vento_ms = max(VENTO_MIN, min(VENTO_MAX, vento_ms))
+
+    # Determinamos el estado
+    if vento_ms < VENTO_ARRANQUE or vento_ms > VENTO_MAX_FUNCIONAMENTO:
+        estado = ESTADO_PARADO
+
+    elif random.random() < PROBABILIDADE_ALARMA:
+        estado = ESTADO_ALARMA
+
+    else:
+        estado = ESTADO_OK
+
+    # Calculamos la potencia
+    potencia_kw = calcula_potencia(vento_ms)
+
+    # Calculamos las revoluciones
+    if estado == ESTADO_PARADO:
+        rotor_rpm = ROTOR_MIN
+    else:
+        rotor_rpm = round(random.uniform(ROTOR_MIN, ROTOR_MAX), 1)
+
+    # Resto de valores
+    direccion_graos = random.randint(GRAO_MIN, GRAO_MAX)
+    temp_xerador_c = round(random.uniform(TEMP_XERADOR_MIN, TEMP_XERADOR_MAX), 1)
+
+    return {
+        "aerogenerador_id": aeroxerador_id,
+        "data_hora": data_hora.strftime("%Y-%m-%d %H:%M:%S"),
+        "vento_ms": vento_ms,
+        "direccion_graos": direccion_graos,
+        "potencia_kw": potencia_kw,
+        "rotor_rpm": rotor_rpm,
+        "temp_xerador_c": temp_xerador_c,
+        "estado": estado
+    }
 
 
 def xera_lecturas(dias):
     """Xera as lecturas de todos os aeroxeradores."""
-    ...
+
+    lecturas = []
+    vento_anterior = random.uniform(VENTO_MIN, VENTO_MAX)
+
+    for dia in range(dias):
+        for intervalo in range(LECTURAS_POR_DIA):
+
+            data_hora = PRIMEIRO_DIA + timedelta(
+                days=dia,
+                minutes=intervalo * MINUTOS
+            )
+
+            vento_referencia = xera_vento_anterior(vento_anterior)
+            vento_anterior = vento_referencia
+
+            for aeroxerador_id in AEROGENERADORES:
+
+                nova_lectura = lectura(
+                    aeroxerador_id,
+                    data_hora,
+                    vento_referencia
+                )
+
+                lecturas.append(nova_lectura)
+
+    return lecturas
 
 
 def cumpre_contrato(lectura):
     """Comproba que unha lectura cumpre o contrato."""
-    ...
+
+    if lectura["aerogenerador_id"] not in AEROGENERADORES:
+        return False
+
+    if not VENTO_MIN <= lectura["vento_ms"] <= VENTO_MAX:
+        return False
+
+    if not GRAO_MIN <= lectura["direccion_graos"] <= GRAO_MAX:
+        return False
+
+    if not POTENCIA_MIN <= lectura["potencia_kw"] <= POTENCIA_MAX:
+        return False
+
+    if not ROTOR_MIN <= lectura["rotor_rpm"] <= ROTOR_MAX:
+        return False
+
+    if not TEMP_XERADOR_MIN <= lectura["temp_xerador_c"] <= TEMP_XERADOR_MAX:
+        return False
+
+    if lectura["estado"] not in (ESTADO_OK, ESTADO_ALARMA, ESTADO_PARADO):
+        return False
+
+    if lectura["estado"] == ESTADO_PARADO:
+        if lectura["potencia_kw"] != 0 or lectura["rotor_rpm"] != 0:
+            return False
+
+    if lectura["potencia_kw"] != calcula_potencia(lectura["vento_ms"]):
+        return False
+
+    return True
 
 
 if __name__ == "__main__":
+
     # Argumentos
+    parser = argparse.ArgumentParser(
+        description="Xerador de lecturas dun parque eólico."
+    )
+
+    parser.add_argument("--dias", type=int, default=1,
+                        help="Número de días que se van xerar.")
+
+    parser.add_argument("--semente", type=int, default=42,
+                        help="Semente para reproducir a xeración.")
+
+    parser.add_argument("--saida", type=str, default="lecturas.csv",
+                        help="Nome do ficheiro CSV de saída.")
+
+    args = parser.parse_args()
+
+    if args.dias <= 0:
+        parser.error("--dias debe ser maior que cero.")
+
     # Semente
+    random.seed(args.semente)
+
+    # Xeración das lecturas
+    lecturas = xera_lecturas(args.dias)
+
+    # Validación
+    if not all(cumpre_contrato(l) for l in lecturas):
+        raise ValueError("Hai lecturas que non cumpren o contrato.")
+
     # Xeración do CSV
-    ...
+    with open(args.saida, "w", newline="", encoding="utf-8") as ficheiro:
+
+        campos = [
+            "aerogenerador_id",
+            "data_hora",
+            "vento_ms",
+            "direccion_graos",
+            "potencia_kw",
+            "rotor_rpm",
+            "temp_xerador_c",
+            "estado"
+        ]
+
+        escritor = csv.DictWriter(ficheiro, fieldnames=campos)
+        escritor.writeheader()
+        escritor.writerows(lecturas)
+
+    print(f"Lecturas xeradas: {len(lecturas)}")
+    print(f"Ficheiro CSV: {args.saida}")
