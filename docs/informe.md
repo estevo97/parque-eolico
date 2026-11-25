@@ -47,3 +47,31 @@ Comprobouse que os servizos do proxecto están en execución mediante `docker co
 ## 6. Conclusión
 
 A configuración permite executar un clúster Cassandra de tres nodos, cun keyspace replicado nos tres nodos e unha táboa na que se poden inserir e consultar datos.
+
+
+# 2. Deseño do modelo de datos
+
+Deseñáronse catro táboas en Cassandra, cada unha orientada a unha consulta:
+
+- `lecturas_aerogenerador_dia`: almacena as lecturas completas de cada aeroxerador por día.
+- `energia_aerogenerador_dia`: almacena os datos de potencia necesarios para calcular a enerxía diaria.
+- `alarmas_dia`: almacena unicamente as lecturas en estado de alarma.
+- `ultima_lectura_aerogenerador`: conserva a última lectura de cada aeroxerador.
+
+As táboas de lecturas e enerxía comparten parte da información. Esta duplicación é intencionada e responde ao modelo de deseño de Cassandra, no que as táboas se adaptan ás consultas que deben resolver. Así evítase recuperar información innecesaria e mellórase a eficiencia das lecturas.
+
+# 3. Carga de datos e consultas
+
+Implementáronse scripts Python para cargar en Cassandra as lecturas xeradas no ficheiro CSV e executar as consultas necesarias para a monitorización do parque.
+
+A carga inclúe a conversión dos tipos de datos e a inserción dos rexistros nas táboas correspondentes, actualizando tamén a última lectura de cada aeroxerador.
+
+As consultas permiten recuperar as lecturas por día, calcular a enerxía producida, consultar as alarmas e obter a última lectura de cada aeroxerador.
+
+A enerxía diaria calcúlase sumando a potencia de cada intervalo de dez minutos multiplicada por \(10/60\), obtendo o resultado en kWh.
+
+# 4. Probas e conclusión
+
+Realizáronse comprobacións para verificar a correcta carga dos datos, o funcionamento das consultas, o cálculo da enerxía e o almacenamento das alarmas e das últimas lecturas.
+
+O sistema permite almacenar e consultar de forma distribuída a información dos aeroxeradores mediante un clúster Cassandra de tres nodos.
