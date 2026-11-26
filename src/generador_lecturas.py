@@ -29,51 +29,42 @@ ESTADO_ALARMA = "alarma"
 ESTADO_PARADO = "parado"
 TEMP_ALARMA = 80.0
 
-# vento -> cambia pouco dunha lectura á seguinte e distintos aeroxeradores teñen ventos parecidos á mesma hora
-CAMBIO_MAX_VENTO = 0.5
-vento_anterior_primera_lectura = random.uniform(VENTO_MIN, VENTO_MAX)
+# vento
 VENTO_ARRANQUE = 3.0
 VENTO_NOMINAL = 12.0
 VENTO_MAX_FUNCIONAMENTO = 25.0
 
-def xera_vento_anterior(vento_anterior):
-    """Xera o vento de referencia do parque."""
-    cambio = random.uniform(-CAMBIO_MAX_VENTO, CAMBIO_MAX_VENTO) #genera una variación aleatoria entre -0,5 y +0,5 (puede ser -0,2 o +0,3 por ejemplo)
-
-    vento = vento_anterior + cambio #calcula el nuevo viento a partir del anterior. Le suma al viento anterior el cambio (puede restar o sumar al valor)
-
-    vento = max(VENTO_MIN, min(VENTO_MAX, vento)) #evitan que el viento salga del rango permitido, de 0 a 30 m/s.
-
-    return round(vento, 1)
+# Función para cumplir la regla 2 "potencia segundo o vento"
+#Calcula qué parte del intervalo entre 3 y 12 m/s hemos recorrido.
+#Multiplica esa proporción por los 3.000 kW máximos.
+# vento_ms - VENTO_ARRANQUE: calcula cuánto viento tenemos por encima del mínimo necesario para arrancar.
+# VENTO_NOMINAL - VENTO_ARRANQUE: calcula cuánto viento necesitamos para pasar del arranque a la potencia máxima.
 
 def calcula_potencia(vento_ms):
     """Calcula a potencia en función da velocidade do vento."""
-
+    #Si el viento es menor a 3ms o mayor a 25ms = 0 de potencia
     if vento_ms < VENTO_ARRANQUE or vento_ms > VENTO_MAX_FUNCIONAMENTO:
         potencia = POTENCIA_MIN
-
+    #entre 3 y 12 se calcula el aumento ya que (potencia sobe co vento)
     elif vento_ms < VENTO_NOMINAL:
         proporcion = (vento_ms - VENTO_ARRANQUE) / (VENTO_NOMINAL - VENTO_ARRANQUE)
         potencia = proporcion * POTENCIA_MAX
-
+    #entre 12 y 25 = 3000kw
     else:
         potencia = POTENCIA_MAX
 
     return round(potencia, 1)
 
+#Función para generar una lectura por aeroxerador y día
+#Generamos una probabilidad del 1% en qeu salgan temps altas para poder realizar un estado de alarma
+#Generamos un vento_ms por random.uniform para poder calcular la potencia y realizar un estado de parado(si es 0)
+#si el estado es parado -> rpm a 0
+#Generamos direcciones
+def lectura(aeroxerador_id, data_hora):
 
-def lectura(aeroxerador_id, data_hora, vento_primera):
     """Xera unha lectura que cumpre o contrato."""
 
-    # Vento particular do aeroxerador
-    # variacion = random.uniform(-0.3, 0.3)
-    # vento_ms = round(vento_primera + variacion, 1)
-
-    # # Evitamos salir del rango permitido
-    # vento_ms = max(VENTO_MIN, min(VENTO_MAX, vento_ms))
-    # Xeración independente do vento para probar as paradas
-
-    #pruebas sin variación
+    #sin variación
     vento_ms = round(random.uniform(VENTO_MIN, VENTO_MAX), 1)
      
     # Xeración da temperatura e da posible alarma
@@ -99,19 +90,6 @@ def lectura(aeroxerador_id, data_hora, vento_primera):
     else:
         estado = ESTADO_OK
 
-
-    # # Determinamos el estado
-    # if vento_ms < VENTO_ARRANQUE or vento_ms > VENTO_MAX_FUNCIONAMENTO:
-    #     estado = ESTADO_PARADO
-
-    # elif random.random() < PROBABILIDADE_ALARMA:
-    #     estado = ESTADO_ALARMA
-
-    # else:
-    #     estado = ESTADO_OK
-
-
-
     # Calculamos la potencia
     potencia_kw = calcula_potencia(vento_ms)
 
@@ -123,7 +101,6 @@ def lectura(aeroxerador_id, data_hora, vento_primera):
 
     # Resto de valores
     direccion_graos = random.randint(GRAO_MIN, GRAO_MAX)
-    # temp_xerador_c = round(random.uniform(TEMP_XERADOR_MIN, TEMP_XERADOR_MAX), 1)
 
     return {
         "aerogenerador_id": aeroxerador_id,
@@ -136,12 +113,12 @@ def lectura(aeroxerador_id, data_hora, vento_primera):
         "estado": estado
     }
 
-
+#Utilizamos la función xera_lecturas para poder devolver una lista de estas según los dias marcados 
+#Generamos espacios de 10 minutos entre cada generación de grupo de lecturas por aeroxeradores
 def xera_lecturas(dias):
     """Xera as lecturas de todos os aeroxeradores."""
 
     lecturas = []
-    vento_anterior = random.uniform(VENTO_MIN, VENTO_MAX)
 
     for dia in range(dias):
         for intervalo in range(LECTURAS_POR_DIA):
@@ -151,15 +128,11 @@ def xera_lecturas(dias):
                 minutes=intervalo * MINUTOS
             )
 
-            vento_referencia = xera_vento_anterior(vento_anterior)
-            vento_anterior = vento_referencia
-
             for aeroxerador_id in AEROGENERADORES:
 
                 nova_lectura = lectura(
                     aeroxerador_id,
-                    data_hora,
-                    vento_referencia
+                    data_hora
                 )
 
                 lecturas.append(nova_lectura)
@@ -167,41 +140,7 @@ def xera_lecturas(dias):
     return lecturas
 
 
-# def cumpre_contrato(lectura):
-#     """Comproba que unha lectura cumpre o contrato."""
-
-#     if lectura["aerogenerador_id"] not in AEROGENERADORES:
-#         return False
-
-#     if not VENTO_MIN <= lectura["vento_ms"] <= VENTO_MAX:
-#         return False
-
-#     if not GRAO_MIN <= lectura["direccion_graos"] <= GRAO_MAX:
-#         return False
-
-#     if not POTENCIA_MIN <= lectura["potencia_kw"] <= POTENCIA_MAX:
-#         return False
-
-#     if not ROTOR_MIN <= lectura["rotor_rpm"] <= ROTOR_MAX:
-#         return False
-
-#     if not TEMP_XERADOR_MIN <= lectura["temp_xerador_c"] <= TEMP_XERADOR_MAX:
-#         return False
-
-#     if lectura["estado"] not in (ESTADO_OK, ESTADO_ALARMA, ESTADO_PARADO):
-#         return False
-
-#     if lectura["estado"] == ESTADO_PARADO:
-#         if lectura["potencia_kw"] != 0 or lectura["rotor_rpm"] != 0:
-#             return False
-
-#     if lectura["potencia_kw"] != calcula_potencia(lectura["vento_ms"]):
-#         return False
-
-#     return True
-
-
-
+#Comprobamos que cumplen las reglas de contrato por cada una de las lecturas
 def cumpre_contrato(lectura):
     """Comproba que unha lectura cumpre o contrato."""
 
@@ -265,7 +204,8 @@ def cumpre_contrato(lectura):
 
     return True
 
-
+#Para poder generar el csv , utilizamos main pasandole argumentos 
+#cuantos días que queremos generar , semente , nombre del archivo
 if __name__ == "__main__":
 
     # Argumentos
