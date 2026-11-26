@@ -167,12 +167,49 @@ def xera_lecturas(dias):
     return lecturas
 
 
+# def cumpre_contrato(lectura):
+#     """Comproba que unha lectura cumpre o contrato."""
+
+#     if lectura["aerogenerador_id"] not in AEROGENERADORES:
+#         return False
+
+#     if not VENTO_MIN <= lectura["vento_ms"] <= VENTO_MAX:
+#         return False
+
+#     if not GRAO_MIN <= lectura["direccion_graos"] <= GRAO_MAX:
+#         return False
+
+#     if not POTENCIA_MIN <= lectura["potencia_kw"] <= POTENCIA_MAX:
+#         return False
+
+#     if not ROTOR_MIN <= lectura["rotor_rpm"] <= ROTOR_MAX:
+#         return False
+
+#     if not TEMP_XERADOR_MIN <= lectura["temp_xerador_c"] <= TEMP_XERADOR_MAX:
+#         return False
+
+#     if lectura["estado"] not in (ESTADO_OK, ESTADO_ALARMA, ESTADO_PARADO):
+#         return False
+
+#     if lectura["estado"] == ESTADO_PARADO:
+#         if lectura["potencia_kw"] != 0 or lectura["rotor_rpm"] != 0:
+#             return False
+
+#     if lectura["potencia_kw"] != calcula_potencia(lectura["vento_ms"]):
+#         return False
+
+#     return True
+
+
+
 def cumpre_contrato(lectura):
     """Comproba que unha lectura cumpre o contrato."""
 
+    # Comprobamos o identificador do aeroxerador
     if lectura["aerogenerador_id"] not in AEROGENERADORES:
         return False
 
+    # Comprobamos os rangos dos valores
     if not VENTO_MIN <= lectura["vento_ms"] <= VENTO_MAX:
         return False
 
@@ -188,15 +225,43 @@ def cumpre_contrato(lectura):
     if not TEMP_XERADOR_MIN <= lectura["temp_xerador_c"] <= TEMP_XERADOR_MAX:
         return False
 
+    # Comprobamos que o estado sexa válido
     if lectura["estado"] not in (ESTADO_OK, ESTADO_ALARMA, ESTADO_PARADO):
         return False
 
-    if lectura["estado"] == ESTADO_PARADO:
-        if lectura["potencia_kw"] != 0 or lectura["rotor_rpm"] != 0:
+    vento = lectura["vento_ms"]
+    potencia = lectura["potencia_kw"]
+    rotor = lectura["rotor_rpm"]
+    temperatura = lectura["temp_xerador_c"]
+    estado = lectura["estado"]
+
+    # A potencia debe corresponderse coa velocidade do vento
+    if potencia != calcula_potencia(vento):
+        return False
+
+    # Comprobamos o estado parado
+    if estado == ESTADO_PARADO:
+        if vento >= VENTO_ARRANQUE and vento <= VENTO_MAX_FUNCIONAMENTO:
             return False
 
-    if lectura["potencia_kw"] != calcula_potencia(lectura["vento_ms"]):
-        return False
+        if potencia != POTENCIA_MIN or rotor != ROTOR_MIN:
+            return False
+
+    # Comprobamos o estado de alarma
+    elif estado == ESTADO_ALARMA:
+        if vento < VENTO_ARRANQUE or vento > VENTO_MAX_FUNCIONAMENTO:
+            return False
+
+        if temperatura < TEMP_ALARMA:
+            return False
+
+    # Comprobamos o estado normal
+    elif estado == ESTADO_OK:
+        if vento < VENTO_ARRANQUE or vento > VENTO_MAX_FUNCIONAMENTO:
+            return False
+
+        if temperatura >= TEMP_ALARMA:
+            return False
 
     return True
 
