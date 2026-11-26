@@ -33,7 +33,7 @@ def calcular_enerxia_diaria(sesion, aeroxerador_id, dia):
     consulta = """
         SELECT potencia_kw
         FROM energia_aerogenerador_dia
-        WHERE aeroxerador_id = %s AND dia = %s
+        WHERE aerogenerador_id = %s AND dia = %s
     """
 
     filas = sesion.execute(consulta, (aeroxerador_id, dia))

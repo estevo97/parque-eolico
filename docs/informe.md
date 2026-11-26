@@ -102,3 +102,37 @@ A función `consultar_alarmas_diarias()` permite recuperar todas as alarmas rexi
 ### Consulta das últimas lecturas
 
 A función `consultar_ultimas_lecturas()` recupera a última lectura almacenada de cada aeroxerador. Para iso, consulta a táboa `ultima_lectura_aerogenerador`, que mantén un rexistro actualizado por cada máquina.
+
+### Carga de datos en Cassandra
+
+Executouse o script `carga.py` para importar as lecturas do ficheiro CSV nas catro táboas de Cassandra. A carga completouse correctamente, procesando 12.096 lecturas, inserindo 105 alarmas e actualizando os rexistros dos 12 aeroxeradores.
+
+![Resumo da carga](img/issue4_cap1.png)
+
+Comprobouse tamén que o número de rexistros almacenados coincide co esperado: 12.096 en `lecturas_aerogenerador_dia`, 12.096 en `energia_aerogenerador_dia`, 105 en `alarmas_dia` e 12 en `ultima_lectura_aerogenerador`.
+
+![Comprobación dos rexistros](img/issue4_cap2.png)
+
+### Consulta de lecturas dun aeroxerador
+
+A función `consultar_lecturas_aeroxerador()` recupera todas as lecturas dun aeroxerador nun día determinado, ordenadas da máis recente á máis antiga. Comprobouse o seu funcionamento con MB-01 o 16/07/2027, obtendo as 144 lecturas esperadas.
+
+![Consulta de lecturas](img/issue4_cap3.png)
+
+### Comprobación do cálculo da enerxía diaria
+
+Probouse a función `calcular_enerxia_diaria()` con MB-01 o 16/07/2027, obtendo unha produción diaria de **45.816,63 kWh**.
+
+![Cálculo da enerxía diaria](img/issue4_cap4.png)
+
+### Comprobación das alarmas diarias
+
+Verificouse a consulta de alarmas para o 16/07/2027. Recuperáronse 12 rexistros, todos co estado `alarma` e ordenados cronoloxicamente.
+
+![Consulta de alarmas](img/issue4_cap5.png)
+
+### Comprobación das últimas lecturas
+
+Finalmente, comprobouse que a función `consultar_ultimas_lecturas()` devolve unha lectura por cada un dos 12 aeroxeradores. Todas corresponden ao último intervalo rexistrado, o 22/07/2027 ás 23:50.
+
+![Últimas lecturas dos aeroxeradores](img/issue4_cap6.png)

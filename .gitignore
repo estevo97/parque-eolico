@@ -1,0 +1,18 @@
+# Contornos virtuais
+.venv/
+venv/
+env/
+
+# Ficheiros temporais de Python
+__pycache__/
+*.py[cod]
+
+# Ficheiros de configuración local
+.env
+
+# Ficheiros de VS Code
+.vscode/
+
+# Ficheiros do sistema
+.DS_Store
+Thumbs.db
