@@ -1,11 +1,12 @@
+import os
 from cassandra.cluster import Cluster
-
+from datetime import date
 
 def conectar():
-    """
-    Establece a conexión co clúster Cassandra.
-    """
-    cluster = Cluster(["127.0.0.1"])
+    host = os.getenv("CASSANDRA_HOST", "127.0.0.1")
+    port = int(os.getenv("CASSANDRA_PORT", "9042"))
+
+    cluster = Cluster([host], port=port)
     sesion = cluster.connect("parque_eolico")
 
     return cluster, sesion
@@ -71,3 +72,63 @@ def consultar_ultimas_lecturas(sesion):
     filas = sesion.execute(consulta)
 
     return list(filas)
+
+def main():
+    """
+    Executa as consultas e mostra os resultados.
+    """
+    aeroxerador_id = "MB-01"
+    dia = date(2027, 7, 16)
+
+    cluster, sesion = conectar()
+
+    try:
+        # 1. Lecturas dun aeroxerador nun día
+        print("\n--- LECTURAS DO AEROXERADOR ---")
+        lecturas = consultar_lecturas_aeroxerador(
+            sesion, aeroxerador_id, dia
+        )
+
+        for lectura in lecturas:
+            print(
+                lectura.data_hora,
+                lectura.potencia_kw,
+                lectura.estado
+            )
+
+        # 2. Enerxía diaria
+        print("\n--- ENERXÍA DIARIA ---")
+        enerxia = calcular_enerxia_diaria(
+            sesion, aeroxerador_id, dia
+        )
+        print(f"{aeroxerador_id}: {enerxia:.2f} kWh")
+
+        # 3. Alarmas do día
+        print("\n--- ALARMAS DIARIAS ---")
+        alarmas = consultar_alarmas_diarias(sesion, dia)
+
+        for alarma in alarmas:
+            print(
+                alarma.data_hora,
+                alarma.aerogenerador_id,
+                alarma.estado
+            )
+
+        # 4. Últimas lecturas de cada aeroxerador
+        print("\n--- ÚLTIMAS LECTURAS ---")
+        ultimas = consultar_ultimas_lecturas(sesion)
+
+        for lectura in ultimas:
+            print(
+                lectura.aerogenerador_id,
+                lectura.data_hora,
+                lectura.potencia_kw,
+                lectura.estado
+            )
+
+    finally:
+        cluster.shutdown()
+
+
+if __name__ == "__main__":
+    main()
