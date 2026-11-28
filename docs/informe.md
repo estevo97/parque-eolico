@@ -136,3 +136,90 @@ Verificouse a consulta de alarmas para o 16/07/2027. Recuperáronse 12 rexistros
 Finalmente, comprobouse que a función `consultar_ultimas_lecturas()` devolve unha lectura por cada un dos 12 aeroxeradores. Todas corresponden ao último intervalo rexistrado, o 22/07/2027 ás 23:50.
 
 ![Últimas lecturas dos aeroxeradores](img/issue4_cap6.png)
+
+# Issue 3 – Modelos de Cassandra
+
+## Diseño del modelo de datos en Cassandra
+
+### 1. Justificación de las claves de partición y las columnas de agrupación
+
+El modelo de datos se ha diseñado teniendo en cuenta las consultas que se necesitan realizar sobre la información del parque eólico. En Cassandra, la clave de partición determina cómo se distribuyen los datos entre los nodos, mientras que las columnas de agrupación permiten ordenar e identificar las filas dentro de cada partición.
+
+Se ha buscado que las particiones tengan un tamaño limitado, evitando que crezcan indefinidamente a medida que se generan nuevas lecturas.
+
+
+#### Tabla `lecturas_aerogenerador_dia`
+
+Esta tabla almacena todas las lecturas de cada aerogenerador, organizadas por día.
+
+- **Clave de partición:** `(aerogenerador_id, dia)`.
+- **Columna de agrupación:** `data_hora`, ordenada de forma descendente (`DESC`).
+
+La clave de partición combina el identificador del aerogenerador con el día de la lectura. De esta manera, cada aerogenerador tiene una partición diferente para cada día.
+
+La columna `data_hora` permite ordenar cronológicamente las lecturas dentro de esa partición, mostrando primero las más recientes.
+
+Según el contrato, cada aerogenerador genera una lectura cada 10 minutos, por lo que se almacenan 144 lecturas diarias por aerogenerador.
+
+**Crecimiento de las particiones:** al cabo de un año, cada partición seguirá teniendo como máximo 144 filas, ya que cada día genera una partición nueva. Para los 12 aerogeneradores se crearán 4.380 particiones al año (12 × 365).
+
+#### Tabla `energia_aerogenerador_dia`
+
+Esta tabla almacena las lecturas de potencia necesarias para realizar consultas y calcular la energía generada por cada aerogenerador.
+
+- **Clave de partición:** `(aerogenerador_id, dia)`.
+- **Columna de agrupación:** `data_hora`.
+
+Se utiliza la misma estrategia que en la tabla de lecturas: cada partición corresponde a un aerogenerador y a un día concreto.
+
+Esta decisión permite consultar de forma independiente las potencias registradas por cada aerogenerador durante un día, sin tener que recorrer todas las lecturas del parque.
+
+**Crecimiento de las particiones:** cada partición contiene 144 filas como máximo, una por cada intervalo de 10 minutos. En un año se generan también 4.380 particiones para el conjunto de los 12 aerogeneradores.
+
+#### Tabla `alarmas_por_dia`
+
+Esta tabla almacena únicamente las lecturas cuyo estado es de alarma.
+
+- **Clave de partición:** `dia`.
+- **Columnas de agrupación:** `data_hora` y `aerogenerador_id`.
+
+La clave de partición es el día, de modo que todas las alarmas registradas durante una misma jornada quedan agrupadas en una partición.
+
+Se utilizan dos columnas de agrupación porque varios aerogeneradores pueden generar una alarma en el mismo instante. `data_hora` identifica el momento de la lectura y `aerogenerador_id` permite distinguir qué aerogenerador ha generado la alarma.
+
+Las filas se ordenan por fecha y hora de forma ascendente (`ASC`).
+
+Según el generador, aproximadamente el 1 % de las lecturas tienen una temperatura de alarma. Como el parque genera 1.728 lecturas diarias, se esperan aproximadamente 17,28 lecturas con temperatura de alarma al día. El número de estados `alarma` puede ser algo inferior porque un aerogenerador parado no recibe ese estado, aunque tenga una temperatura elevada.
+
+**Crecimiento de las particiones:** se espera almacenar aproximadamente 17 lecturas de alarma por partición y día. En un año se crearán 365 particiones. Como límite teórico, una partición podría llegar a contener las 1.728 lecturas del parque de un día si todas fueran alarmas. En cualquier caso, la partición queda limitada a un único día y no acumula las alarmas de todo el año.
+
+#### Tabla `ultima_lectura_aerogenerador`
+
+Esta tabla almacena la última lectura conocida de cada aerogenerador.
+
+- **Clave de partición:** `aerogenerador_id`.
+- **Columnas de agrupación:** no tiene.
+
+Cada aerogenerador dispone de una única fila, que se actualiza cuando llega una nueva lectura. De esta forma, se puede consultar rápidamente el último estado conocido de cualquier aerogenerador.
+
+**Crecimiento de las particiones:** cada partición contiene una única fila por aerogenerador, independientemente del tiempo que lleve funcionando el parque. Por tanto, se mantienen 12 particiones con una fila cada una.
+
+
+### 3. Conversión de los campos del contrato a tipos CQL
+
+Los campos del contrato de datos se han convertido a tipos compatibles con Cassandra (CQL), teniendo en cuenta el tipo de información que almacena cada uno.
+
+| Campo del contrato | Tipo CQL | Justificación |
+|---|---|---|
+| `aerogenerador_id` | `TEXT` | Almacena identificadores alfanuméricos como MB-01. |
+| `data_hora` | `TIMESTAMP` | Representa la fecha y hora de cada lectura. |
+| `vento_ms` | `DECIMAL` | Permite almacenar velocidades con decimales. |
+| `direccion_graos` | `INT` | Almacena grados enteros entre 0 y 359. |
+| `potencia_kw` | `DECIMAL` | Permite almacenar potencias con decimales. |
+| `rotor_rpm` | `DECIMAL` | Permite almacenar revoluciones por minuto con decimales. |
+| `temp_xerador_c` | `DECIMAL` | Permite almacenar temperaturas con decimales. |
+| `estado` | `TEXT` | Almacena valores como `ok`, `alarma` y `parado`. |
+
+Además, se incorpora el campo `dia`, de tipo `DATE`, que se obtiene a partir de `data_hora`. Este campo no forma parte del contrato original, sino que se deriva de la fecha de la lectura y se utiliza para organizar las particiones diarias.
+
+No todas las tablas almacenan todos los campos del contrato. Cada una conserva únicamente los datos necesarios para responder a las consultas previstas. Por ejemplo, `energia_aerogenerador_dia` almacena la potencia y el momento de cada lectura, mientras que `ultima_lectura_aerogenerador` conserva los datos de la última lectura recibida.
